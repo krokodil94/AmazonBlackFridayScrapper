@@ -1,9 +1,10 @@
 from requests_html import HTMLSession
 from bs4 import BeautifulSoup
-import time
+import pandas as pd
+
 s = HTMLSession()
 dealslist = []
-searchterm = 'dslr+card'
+searchterm = 'nintendo'
 url = f'https://www.amazon.de/s?k={searchterm}&i=black-friday'
 
 def getdata(url):
@@ -19,12 +20,12 @@ def getdeals(soup):
         short_title = item.find('span', {'class': 'a-size-medium a-color-base a-text-normal'}).text.strip()[:25]
         title = item.find('span', {'class':'a-size-medium a-color-base a-text-normal'}).text.strip()
         try:
-            saleprice = item.find_all('span', {'class':'a-offscreen'})[0].text.replace('€','').strip()
-            oldprice = item.find_all('span', {'class': 'a-offscreen'})[1].text.replace('€', '').strip()
+            saleprice = float(item.find_all('span', {'class':'a-offscreen'})[0].text.replace('€','').replace(',','.').strip())
+            oldprice = float(item.find_all('span', {'class': 'a-offscreen'})[1].text.replace('€', '').replace(',','.').strip())
         except:
-            oldprice = item.find('span', {'class': 'a-offscreen'}).text.replace('€', '').strip()
+            oldprice = 0
         try:
-            reviews = item.find('span', {'class':'a-size-base'}).text.strip()
+            reviews = float(item.find('span', {'class':'a-size-base'}).text.strip())
         except:
             reviews = 0
 
@@ -40,14 +41,12 @@ def getdeals(soup):
     return
 
 def getnextpage(soup):
-    if not soup.find('span', {'class': 's-pagination-item s-pagination-next s-pagination-disabled'}):
-        pages = soup.find('a',{'class':'s-pagination-item s-pagination-next s-pagination-button s-pagination-separator'})['href']
-        url = 'https://www.amazon.de/' + str(pages)
-        return url
-    else:
-        return
-
-
+        if not soup.find('span', {'class':'s-pagination-next'}):
+            pages = soup.find('a', {'class': 's-pagination-next'})['href']
+            url = 'https://www.amazon.de/' + str(pages)
+            return url
+        else:
+            return
 
 
 while True:
@@ -60,4 +59,9 @@ while True:
     else:
         print(url)
         print(len(dealslist))
-        print(dealslist)
+
+df = pd.DataFrame(dealslist)
+df['percentoff'] = 100 - ((df.saleprice / df.oldprice)* 100)
+df = df.sort_values(by=['percentoff'],ascending = False)
+df.to_csv(searchterm + '-bfdeals.csv', index=False)
+print('fin.')
